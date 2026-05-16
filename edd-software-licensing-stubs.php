@@ -2745,6 +2745,38 @@ namespace {
         {
         }
     }
+    /**
+     * The protected properties below are exposed publicly via __get / __set / __isset
+     * magic on the parent — declared here as @property so PHPStan can resolve them at
+     * level max without `protected.access` errors.
+     *
+     * @property int|null         $_ID
+     * @property bool|null        $exists
+     * @property int|null         $parent
+     * @property int|null         $post_parent
+     * @property string|null      $name
+     * @property string|null      $key
+     * @property string|null      $license_key
+     * @property int|null         $user_id
+     * @property int|null         $customer_id
+     * @property \EDD_Customer|null $customer
+     * @property int|null         $payment_id
+     * @property array<int>|null  $payment_ids
+     * @property int|null         $cart_index
+     * @property \EDD_SL_Download|null $download
+     * @property int|null         $download_id
+     * @property int|false|null   $price_id
+     * @property int|null         $activation_limit
+     * @property array<string>|null $sites
+     * @property int|null         $activation_count
+     * @property string|null      $date_created
+     * @property int|string|null  $expiration
+     * @property bool|null        $is_lifetime
+     * @property string|null      $status
+     * @property string|null      $post_status
+     * @property string|null      $old_status
+     * @property array<EDD_SL_License>|null $child_licenses
+     */
     class EDD_SL_License
     {
         /**

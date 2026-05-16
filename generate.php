@@ -90,6 +90,11 @@ $content = removeStrayCodeStatements( $content );
 // fatal at parse time.
 $content = neutralizeAbstractMethods( $content );
 
+// 2.6. Inject @property docblocks for classes that expose protected properties via
+// __get/__set/__isset magic — PHPStan can't infer the public surface from source
+// alone, so consumers hit `protected.access` errors at level max without this.
+$content = addMagicPropertyDocblocks( $content );
+
 // 3. Extract version from source
 $slVersion = extractSlVersion( $eddSlPath );
 
@@ -192,6 +197,74 @@ function fixMissingTypeStubs( string $content ): string {
 			echo $output . "\n";
 			break;
 		}
+	}
+
+	return $content;
+}
+
+/**
+ * Inject @property docblocks for known classes whose protected properties are exposed
+ * publicly via __get/__set/__isset magic on a parent. PHPStan can't resolve magic
+ * property access from source visibility alone — without this, every external read of
+ * e.g. `$license->key` at level max fails with `protected.access`.
+ *
+ * Keyed by class short-name; each entry is an ordered map of property-name → PHPStan
+ * type expression. Order is preserved in the emitted docblock for stable diffs.
+ */
+function addMagicPropertyDocblocks( string $content ): string {
+	$targets = array(
+		'EDD_SL_License' => array(
+			'_ID'              => 'int|null',
+			'exists'           => 'bool|null',
+			'parent'           => 'int|null',
+			'post_parent'      => 'int|null',
+			'name'             => 'string|null',
+			'key'              => 'string|null',
+			'license_key'      => 'string|null',
+			'user_id'          => 'int|null',
+			'customer_id'      => 'int|null',
+			'customer'         => '\EDD_Customer|null',
+			'payment_id'       => 'int|null',
+			'payment_ids'      => 'array<int>|null',
+			'cart_index'       => 'int|null',
+			'download'         => '\EDD_SL_Download|null',
+			'download_id'      => 'int|null',
+			'price_id'         => 'int|false|null',
+			'activation_limit' => 'int|null',
+			'sites'            => 'array<string>|null',
+			'activation_count' => 'int|null',
+			'date_created'     => 'string|null',
+			'expiration'       => 'int|string|null',
+			'is_lifetime'      => 'bool|null',
+			'status'           => 'string|null',
+			'post_status'      => 'string|null',
+			'old_status'       => 'string|null',
+			'child_licenses'   => 'array<EDD_SL_License>|null',
+		),
+	);
+
+	foreach ( $targets as $class => $properties ) {
+		$lines = array(
+			'    /**',
+			'     * The protected properties below are exposed publicly via __get / __set / __isset',
+			'     * magic on the parent — declared here as @property so PHPStan can resolve them at',
+			'     * level max without `protected.access` errors.',
+			'     *',
+		);
+		foreach ( $properties as $name => $type ) {
+			$lines[] = sprintf( '     * @property %s $%s', $type, $name );
+		}
+		$lines[]  = '     */';
+		$docblock = implode( "\n", $lines ) . "\n";
+		$pattern  = '/^(\s*)class\s+' . preg_quote( $class, '/' ) . '\b/m';
+		$content  = preg_replace_callback(
+			$pattern,
+			function ( $matches ) use ( $docblock ) {
+				return $docblock . $matches[0];
+			},
+			$content,
+			1
+		);
 	}
 
 	return $content;
